@@ -17,20 +17,27 @@
 package org.osgi.test.junit5.context;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.osgi.framework.Bundle.INSTALLED;
 import static org.osgi.framework.Bundle.UNINSTALLED;
 import static org.osgi.test.assertj.bundle.BundleAssert.assertThat;
+import static org.osgi.test.assertj.bundleevent.BundleEventAssert.assertThat;
 import static org.osgi.test.junit5.TestUtil.getBundle;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtensionContext.Store;
+import org.junit.jupiter.engine.JupiterTestEngine;
+import org.junit.platform.testkit.engine.EngineTestKit;
+import org.junit.platform.testkit.engine.Events;
 import org.mockito.stubbing.Answer;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -41,6 +48,8 @@ import org.osgi.framework.ServiceObjects;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.framework.SynchronousBundleListener;
+import org.osgi.test.common.annotation.InjectBundleContext;
+import org.osgi.test.common.exceptions.Exceptions;
 import org.osgi.test.junit5.types.Foo;
 import org.osgi.test.junit5.types.MockStore;
 
@@ -63,8 +72,8 @@ public class BundleContextExtensionTest {
 		Bundle bundle = null;
 
 		try (WithBundleContextExtension it = new WithBundleContextExtension(extensionContext)) {
-			bundle = BundleContextExtension
-				.getInstallbundle(extensionContext)
+			bundle = BundleContextExtension.getInstallbundle(
+				extensionContext)
 				.installBundle("foo/tbfoo.jar", false);
 
 			assertThat(bundle).as("during")
@@ -80,8 +89,8 @@ public class BundleContextExtensionTest {
 		Bundle bundle = null;
 
 		try (WithBundleContextExtension it = new WithBundleContextExtension(extensionContext)) {
-			bundle = BundleContextExtension
-				.getInstallbundle(extensionContext)
+			bundle = BundleContextExtension.getInstallbundle(
+				extensionContext)
 				.installBundle("tb1.jar", false);
 
 			assertThat(bundle).as("during")
@@ -142,13 +151,46 @@ public class BundleContextExtensionTest {
 		assertThat(installedBundle).isInState(UNINSTALLED);
 	}
 
+	interface ThrowingBiConsumer<T, U> extends BiConsumer<T, U> {
+		@Override
+		default void accept(T t, U u) {
+			try {
+				throwingAccept(t, u);
+			} catch (Throwable ex) {
+				throw Exceptions.duck(ex);
+			}
+		}
+
+		void throwingAccept(T t, U u) throws Throwable;
+	}
+
+	@ExtendWith(BundleContextExtension.class)
+	static class TestRunner {
+
+		static ThreadLocal<ThrowingBiConsumer<TestRunner, BundleContext>> e = new ThreadLocal<>();
+
+		@Test
+		void innerTest(@InjectBundleContext BundleContext bc) throws Throwable {
+			e.get()
+				.accept(this, bc);
+		}
+	}
+
+	private Events runTest(ThrowingBiConsumer<TestRunner, BundleContext> test) {
+		TestRunner.e.set(test);
+		return EngineTestKit.engine(
+			new JupiterTestEngine())
+			.selectors(selectClass(TestRunner.class))
+			.execute()
+			.testEvents();
+	}
+
 	@Test
 	public void cleansUpListeners() throws Exception {
 		Bundle bundle = FrameworkUtil.getBundle(getClass());
-		Bundle installedBundle = null;
 
-		final AtomicReference<BundleEvent> ref = new AtomicReference<BundleEvent>();
-
+		final AtomicReference<BundleEvent> ref = new AtomicReference<>();
+		final AtomicReference<Bundle> installedBundle = new AtomicReference<>();
 		BundleListener bl = new SynchronousBundleListener() {
 			@Override
 			public void bundleChanged(BundleEvent event) {
@@ -156,33 +198,29 @@ public class BundleContextExtensionTest {
 			}
 		};
 
-		try (WithBundleContextExtension it = new WithBundleContextExtension(extensionContext)) {
-			BundleContext bundleContext = it.getBundleContext();
-
+		runTest((test, bundleContext) -> {
 			bundleContext.addBundleListener(bl);
 
-			installedBundle = bundleContext.installBundle("it", getBundle("tb1.jar"));
+			installedBundle.set(bundleContext.installBundle("it", getBundle("tb1.jar")));
+		});
+		assertThat(ref.get()).hasBundle(installedBundle.get());
 
-			assertThat(ref.get()).isNotNull()
-				.extracting(BundleEvent::getBundle)
-				.isEqualTo(installedBundle);
-		}
-
-		assertThat(installedBundle).isInState(UNINSTALLED);
+		assertThat(installedBundle.get()).isInState(UNINSTALLED);
 
 		// now reset the ref
 		ref.set(null);
 
 		try {
 			// re-install the bundle
-			installedBundle = bundle.getBundleContext()
-				.installBundle("it", getBundle("tb1.jar"));
+			installedBundle.set(bundle.getBundleContext()
+				.installBundle("it", getBundle("tb1.jar")));
 
 			// check that the listener didn't notice this last bundle
 			// install
 			assertThat(ref.get()).isNull();
 		} finally {
-			installedBundle.uninstall();
+			installedBundle.get()
+				.uninstall();
 		}
 	}
 
@@ -193,19 +231,15 @@ public class BundleContextExtensionTest {
 			.installBundle("it", getBundle("tb1.jar"));
 		installedBundle.start();
 
-		try (WithBundleContextExtension it = new WithBundleContextExtension(extensionContext)) {
-			BundleContext bundleContext = it.getBundleContext();
-
+		runTest((test, bundleContext) -> {
 			ServiceReference<Foo> serviceReference = bundleContext.getServiceReference(Foo.class);
 
 			Foo foo = bundleContext.getService(serviceReference);
 
 			assertThat(foo).isNotNull();
-			assertThat(bundle.getServicesInUse()).isNotNull()
-				.contains(serviceReference);
-		} finally {
-			installedBundle.uninstall();
-		}
+			assertThat(bundle.getServicesInUse()).contains(serviceReference);
+		});
+		installedBundle.uninstall();
 
 		assertThat(bundle.getServicesInUse()).isNull();
 	}
