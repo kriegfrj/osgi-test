@@ -23,24 +23,24 @@ class BundleContextMultiLevelCleanupTest<RESOURCE> extends MultiLevelCleanupTest
 
 	@SuppressWarnings("unchecked")
 	static <STATIC> void setFactory(
-		BiFunction<BundleContext, Map<Scope, STATIC>, AbstractResourceChecker<STATIC>> factory) {
-		BundleContextMultiLevelCleanupTest.factory = (bc, map) -> factory.apply(bc, (Map<Scope, STATIC>) map);
+		BiFunction<BundleContext, Map<CallbackPoint, STATIC>, AbstractResourceChecker<STATIC>> factory) {
+		BundleContextMultiLevelCleanupTest.factory = (bc, map) -> factory.apply(bc, (Map<CallbackPoint, STATIC>) map);
 	}
 
 	static
-	BiFunction<BundleContext, Map<Scope, ?>, AbstractResourceChecker<?>> factory;
+	BiFunction<BundleContext, Map<CallbackPoint, ?>, AbstractResourceChecker<?>> factory;
 
 	static AbstractResourceChecker<?> getGlobalResourceChecker() {
-		return factory.apply(bundle.getBundleContext(), scopedResourcesMap);
+		return factory.apply(bundle.getBundleContext(), resourcesMap);
 	}
 
 	static AbstractResourceChecker<?> getStaticResourceChecker() {
-		return factory.apply(staticBC, scopedResourcesMap);
+		return factory.apply(staticBC, resourcesMap);
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	AbstractResourceChecker<?> getResourceChecker() {
-		return factory.apply(bundleContext, scopedResourcesMap);
+		return factory.apply(bundleContext, resourcesMap);
 	}
 }

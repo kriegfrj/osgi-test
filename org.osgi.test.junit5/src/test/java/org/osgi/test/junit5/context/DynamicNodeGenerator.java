@@ -12,6 +12,10 @@ import org.junit.platform.engine.TestDescriptor;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.testkit.engine.Event;
 
+/**
+ * Transforms the output of an EngineTestKit set of events into a dynamic node
+ * hierarchy.
+ */
 class DynamicNodeGenerator {
 	final Map<TestDescriptor, Event> eventMap;
 
