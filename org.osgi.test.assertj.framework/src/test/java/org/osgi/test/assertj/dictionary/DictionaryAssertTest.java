@@ -1,8 +1,11 @@
 package org.osgi.test.assertj.dictionary;
 
+import static org.osgi.test.assertj.dictionary.DictionaryAssert.assertThat;
+
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,6 +201,22 @@ public class DictionaryAssertTest {
 			.hasSameSizeAs(dict3))
 			.as("does not hasSameSizeAs")
 			.isInstanceOf(AssertionError.class);
+	}
+
+	// Class that combines dictionary soft assertions with the standard ones to
+	// cause the name collision with assertThat(Map).
+	static class UberSoftAssertions extends SoftAssertions implements DictionarySoftAssertionsProvider {
+	}
+
+	@Disabled(ISSUE)
+	@Test
+	public void hashtable_doesntConfuseCompiler(SoftAssertions softly) throws Exception {
+		Hashtable<String, String> hashtable = new Hashtable<>();
+		softly.assertThat(assertThat(hashtable))
+			.isInstanceOf(DictionaryAssert.class);
+		UberSoftAssertions provider = new UberSoftAssertions();
+		softly.assertThat(provider.assertThat(hashtable))
+			.isInstanceOf(ProxyableDictionaryAssert.class);
 	}
 
 	public static class TestDictionary<K, V> extends Dictionary<K, V> {

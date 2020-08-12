@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.error.ShouldNotBeNull.shouldNotBeNull;
 
 import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -43,6 +44,10 @@ public class DictionaryAssert<KEY, VALUE>
 
 	public static <K, V> DictionaryAssert<K, V> assertThat(Dictionary<K, V> actual) {
 		return new DictionaryAssert<>(actual);
+	}
+
+	public static <K, V> DictionaryAssert<K, V> assertThat(Hashtable<K, V> actual) {
+		return new DictionaryAssert<>((Dictionary<K, V>) actual);
 	}
 
 	public static final <ACTUAL extends Dictionary<K, V>, K, V> InstanceOfAssertFactory<ACTUAL, DictionaryAssert<K, V>> dictionary(

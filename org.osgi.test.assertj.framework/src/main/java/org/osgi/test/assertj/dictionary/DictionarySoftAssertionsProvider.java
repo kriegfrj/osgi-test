@@ -17,6 +17,7 @@
 package org.osgi.test.assertj.dictionary;
 
 import java.util.Dictionary;
+import java.util.Hashtable;
 
 import org.assertj.core.api.SoftAssertionsProvider;
 
@@ -31,5 +32,19 @@ public interface DictionarySoftAssertionsProvider extends SoftAssertionsProvider
 		@SuppressWarnings("unchecked")
 		ProxyableDictionaryAssert<K, V> softly = proxy(ProxyableDictionaryAssert.class, Dictionary.class, actual);
 		return softly;
+	}
+
+	/**
+	 * Create soft assertion for {@link java.util.Hashtable}. Provided to allow
+	 * the compiler to resolve the ambiguity for {@code Hashtable} (as it also
+	 * implements {@link java.util.Map}).
+	 *
+	 * @param actual the actual value.
+	 * @param <K> the type of the keys used in the hashtable
+	 * @param <V> the type of the values used in the hashtable
+	 * @return the created assertion object.
+	 */
+	default <K, V> ProxyableDictionaryAssert<K, V> assertThat(Hashtable<K, V> actual) {
+		return assertThat((Dictionary<K, V>) actual);
 	}
 }
