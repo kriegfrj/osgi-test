@@ -337,6 +337,10 @@
 		<plugins>
 			<plugin>
 				<groupId>biz.aQute.bnd</groupId>
+				<artifactId>bnd-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>biz.aQute.bnd</groupId>
 				<artifactId>bnd-resolver-maven-plugin</artifactId>
 				<version>${bnd.version}</version>
 				<executions>
@@ -348,6 +352,9 @@
 							<goal>resolve</goal>
 						</goals>
 						<configuration>
+							<bndruns>
+								<bndrun>test.bndrun</bndrun>
+							</bndruns>
 							<bundles>
 								<bundle>target/${project.build.finalName}-tests.jar</bundle>
 							</bundles>
