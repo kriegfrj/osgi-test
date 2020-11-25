@@ -73,7 +73,7 @@ jobs:
     - name: Import GPG key
       id: import_gpg
       if: (matrix.canonical)
-      uses: crazy-max/ghaction-import-gpg@v2
+      uses: crazy-max/ghaction-import-gpg@v3.0.2
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
